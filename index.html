@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>东家果园‑猕猴桃点餐</title>
+    <style>
+        *{box-sizing:border-box;margin:0;padding:0;font-family:system-ui, sans-serif;}
+        body{background:#f7fff7;padding:14px;padding-bottom:80px;}
+        .header{text-align:center;margin-bottom:20px;}
+        .item{background:#fff;border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 1px 4px #00000015;}
+        .item h3{font-size:17px;margin-bottom:6px;}
+        .price{color:#e53935;font-weight:bold;font-size:18px;}
+        .spec-row{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0;}
+        .spec-btn{border:1px solid #2e7d32;border-radius:8px;padding:6px 12px;background:#fff;color:#2e7d32;}
+        .spec-btn.active{background:#2e7d32;color:#fff;}
+        .num-box{display:flex;align-items:center;gap:12px;margin-top:10px;}
+        .num-box button{width:36px;height:36px;border-radius:50%;border:none;font-size:20px;background:#4caf50;color:white;}
+        .input-group{margin-top:16px;}
+        label{display:block;margin:8px 0 4px;font-size:15px;}
+        input,textarea{width:100%;border:1px solid #ddd;border-radius:8px;padding:12px;font-size:16px;}
+        .cart-bar{position:fixed;bottom:0;left:0;right:0;background:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 -2px 8px #00000018;}
+        .submit-btn{background:#2e7d32;color:white;border:none;border-radius:10px;padding:12px 22px;font-size:16px;}
+        .admin-btn{position:fixed;top:12px;right:12px;background:#607d8b;color:#fff;border:none;border-radius:8px;padding:6px 10px;font-size:13px;}
+        .admin-panel{display:none;background:#fff;padding:20px;border-radius:12px;margin:20px 0;}
+        .hide{display:none !important;}
+    </style>
+</head>
+<body>
+    <button class="admin-btn" onclick="toggleAdmin()">管理后台</button>
+    <div class="header">
+        <h2>东家果园｜猕猴桃订购</h2>
+        <p>扫码下单，线下转账付款，无平台手续费</p>
+    </div>
+
+    <div id="orderPage">
+        <div class="item">
+            <h3>猕猴桃</h3>
+            <div class="spec-row">
+                <button class="spec-btn size-btn" data-val="小果">小果</button>
+                <button class="spec-btn size-btn" data-val="中果">中果</button>
+                <button class="spec-btn size-btn" data-val="大果">大果</button>
+            </div>
+            <div class="spec-row">
+                <button class="spec-btn pack-btn" data-val="普通装">普通装</button>
+                <button class="spec-btn pack-btn" data-val="礼盒装">礼盒装</button>
+            </div>
+            <div class="num-box">
+                <button onclick="changeQty(-1)">−</button>
+                <span id="qty">0</span>
+                <button onclick="changeQty(1)">+</button>
+            </div>
+            <div class="price">单价：<span id="unitPrice">0</span> 元</div>
+        </div>
+
+        <div class="input-group">
+            <label>收货姓名</label>
+            <input id="name" placeholder="请输入您的姓名">
+        </div>
+        <div class="input-group">
+            <label>联系电话</label>
+            <input id="phone" placeholder="手机号码">
+        </div>
+        <div class="input-group">
+            <label>外卖收货地址</label>
+            <input id="addr" placeholder="详细收货地址">
+        </div>
+        <div class="input-group">
+            <label>备注（可选）</label>
+            <textarea id="remark" rows="3" placeholder="例如什么时候送货、特殊要求"></textarea>
+        </div>
+    </div>
+
+    <div class="admin-panel" id="adminPanel">
+        <h3>后台修改商品价格</h3>
+        <div class="input-group">
+            <label>小果‑普通装 价格</label>
+            <input id="p1" type="number">
+        </div>
+        <div class="input-group">
+            <label>中果‑普通装 价格</label>
+            <input id="p2" type="number">
+        </div>
+        <div class="input-group">
+            <label>大果‑普通装 价格</label>
+            <input id="p3" type="number">
+        </div>
+        <div class="input-group">
+            <label>小果‑礼盒装 价格</label>
+            <input id="p4" type="number">
+        </div>
+        <div class="input-group">
+            <label>中果‑礼盒装 价格</label>
+            <input id="p5" type="number">
+        </div>
+        <div class="input-group">
+            <label>大果‑礼盒装 价格</label>
+            <input id="p6" type="number">
+        </div>
+        <div class="input-group">
+            <label>你的微信号（接收订单）</label>
+            <input id="wxid" placeholder="填写你的微信号">
+        </div>
+        <button class="submit-btn" onclick="saveSetting()">保存配置</button>
+        <p style="margin-top:10px;font-size:13px;color:#666">配置保存在浏览器本地，清除缓存会重置</p>
+    </div>
+
+    <div class="cart-bar">
+        <div>合计：<span id="total">0</span> 元</div>
+        <button class="submit-btn" onclick="submitOrder()">提交订单（微信发给商家）</button>
+    </div>
+
+<script>
+// 默认价格配置
+let config = JSON.parse(localStorage.getItem('shopConfig')) || {
+    prices:{
+        "小果|普通装":28,
+        "中果|普通装":38,
+        "大果|普通装":48,
+        "小果|礼盒装":45,
+        "中果|礼盒装":58,
+        "大果|礼盒装":68
+    },
+    wx:""
+};
+let selectedSize = null;
+let selectedPack = null;
+let qty = 0;
+
+function renderPrice(){
+    if(!selectedSize||!selectedPack){
+        document.getElementById("unitPrice").innerText="请先选择规格";
+        return 0;
+    }
+    let key = selectedSize+"|"+selectedPack;
+    let p = config.prices[key]||0;
+    document.getElementById("unitPrice").innerText=p;
+    return p;
+}
+function calcTotal(){
+    let p=renderPrice();
+    let tot = p*qty;
+    document.getElementById("qty").innerText=qty;
+    document.getElementById("total").innerText=tot;
+}
+function changeQty(delta){
+    qty = Math.max(0,qty+delta);
+    calcTotal();
+}
+
+//规格选中
+document.querySelectorAll(".size-btn").forEach(b=>{
+    b.onclick=()=>{
+        document.querySelectorAll(".size-btn").forEach(x=>x.classList.remove("active"));
+        b.classList.add("active");
+        selectedSize = b.dataset.val;
+        calcTotal();
+    }
+})
+document.querySelectorAll(".pack-btn").forEach(b=>{
+    b.onclick=()=>{
+        document.querySelectorAll(".pack-btn").forEach(x=>x.classList.remove("active"));
+        b.classList.add("active");
+        selectedPack = b.dataset.val;
+        calcTotal();
+    }
+})
+
+//管理面板
+function toggleAdmin(){
+    let pan = document.getElementById("adminPanel");
+    pan.style.display = pan.style.display==="block"?"none":"block";
+    //回填
+    document.getElementById("p1").value=config.prices["小果|普通装"];
+    document.getElementById("p2").value=config.prices["中果|普通装"];
+    document.getElementById("p3").value=config.prices["大果|普通装"];
+    document.getElementById("p4").value=config.prices["小果|礼盒装"];
+    document.getElementById("p5").value=config.prices["中果|礼盒装"];
+    document.getElementById("p6").value=config.prices["大果|礼盒装"];
+    document.getElementById("wxid").value=config.wx||"";
+}
+function saveSetting(){
+    config.prices["小果|普通装"]=Number(document.getElementById("p1").value);
+    config.prices["中果|普通装"]=Number(document.getElementById("p2").value);
+    config.prices["大果|普通装"]=Number(document.getElementById("p3").value);
+    config.prices["小果|礼盒装"]=Number(document.getElementById("p4").value);
+    config.prices["中果|礼盒装"]=Number(document.getElementById("p5").value);
+    config.prices["大果|礼盒装"]=Number(document.getElementById("p6").value);
+    config.wx = document.getElementById("wxid").value.trim();
+    localStorage.setItem("shopConfig",JSON.stringify(config));
+    alert("保存成功！");
+    toggleAdmin();
+    calcTotal();
+}
+
+//提交订单，唤起微信发送文本
+function submitOrder(){
+    let name = document.getElementById("name").value.trim();
+    let phone = document.getElementById("phone").value.trim();
+    let addr = document.getElementById("addr").value.trim();
+    let remark = document.getElementById("remark").value.trim();
+    if(qty<=0){alert("请选择商品数量");return;}
+    if(!selectedSize||!selectedPack){alert("请选择果规格与包装");return;}
+    if(!name||!phone||!addr){alert("请填写姓名、手机号、收货地址");return;}
+    let key = selectedSize+"|"+selectedPack;
+    let up = config.prices[key];
+    let total = up*qty;
+    let orderText=`【猕猴桃新订单】
+规格：${selectedSize}，${selectedPack}
+数量：${qty}份
+单价：${up}元
+合计：${total}元
+姓名：${name}
+电话：${phone}
+收货地址：${addr}
+备注：${remark||"无"}`;
+    //复制文字到剪贴板，然后跳转微信
+    navigator.clipboard.writeText(orderText).then(()=>{
+        alert("订单内容已复制！即将打开你的微信，粘贴发给商家");
+        window.location.href=`weixin://`;
+    }).catch(err=>{
+        alert("复制失败，请手动复制订单：\n"+orderText);
+    })
+}
+</script>
+</body>
+</html>
